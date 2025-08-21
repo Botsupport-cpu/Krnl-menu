@@ -1,284 +1,175 @@
 local UIS = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 
--- VARIABLES --
-local mainGui, speedGui
+-- ПЕРЕМЕННЫЕ --
+local mainGui = nil
+local dragStart, startPos, dragging = nil, nil, false
 
--- NOTIFICATION FUNCTION --
-local function ShowNotification(message, color)
-    local notify = Instance.new("ScreenGui")
-    notify.Name = "Notification"
-    notify.Parent = CoreGui
+-- ФУНКЦИЯ ПЕРЕТАСКИВАНИЯ ВСЕГО МЕНЮ --
+local function EnableDrag(frame)
+    local dragArea = frame:FindFirstChild("DragArea")
+    if not dragArea then return end
 
+    dragArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            
+            local connection
+            connection = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    connection:Disconnect()
+                end
+            end)
+        end
+    end)
+    
+    dragArea.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) and dragging then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale, 
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+end
+
+-- УВЕДОМЛЕНИЯ --
+local function ShowNotification(message)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "Notif"
+    gui.Parent = CoreGui
+    
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0.6, 0, 0.08, 0)
     frame.Position = UDim2.new(0.2, 0, 0.1, 0)
-    frame.BackgroundColor3 = color or Color3.fromRGB(0, 170, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
     frame.BorderSizePixel = 0
-
+    
     local label = Instance.new("TextLabel")
     label.Text = message
     label.Size = UDim2.new(1, 0, 1, 0)
     label.BackgroundTransparency = 1
     label.TextColor3 = Color3.new(1, 1, 1)
-    label.Font = Enum.Font.GothamBold
     label.TextScaled = true
     label.Parent = frame
-    frame.Parent = notify
-
-    -- ANIMATION
-    frame.Position = UDim2.new(0.2, 0, -0.1, 0)
-    local tweenIn = TweenService:Create(
-        frame,
-        TweenInfo.new(0.5),
-        {Position = UDim2.new(0.2, 0, 0.1, 0)}
-    )
-    tweenIn:Play()
-
+    frame.Parent = gui
+    
     task.delay(3, function()
-        local tweenOut = TweenService:Create(
-            frame,
-            TweenInfo.new(0.5),
-            {Position = UDim2.new(0.2, 0, -0.1, 0)}
-        )
-        tweenOut:Play()
-        tweenOut.Completed:Connect(function()
-            notify:Destroy()
-        end)
+        gui:Destroy()
     end)
 end
 
--- DRAGGABLE FUNCTION FOR MOBILE --
-local function EnableMobileDrag(frame)
-    local touchStartPos, frameStartPos
-    
-    frame.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            touchStartPos = input.Position
-            frameStartPos = frame.Position
-            frame.Draggable = true
-        end
-    end)
-    
-    frame.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local touch = input
-            touch.Changed:Connect(function()
-                if touch.UserInputState == Enum.UserInputState.Change then
-                    local delta = touch.Position - touchStartPos
-                    frame.Position = UDim2.new(
-                        frameStartPos.X.Scale, 
-                        frameStartPos.X.Offset + delta.X,
-                        frameStartPos.Y.Scale, 
-                        frameStartPos.Y.Offset + delta.Y
-                    )
-                end
-            end)
-        end
-    end)
-end
-
--- MAIN MENU --
+-- ОСНОВНОЕ МЕНЮ --
 local function CreateMainMenu()
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "Mobile_KRNL_Menu"
-    gui.ResetOnSpawn = false
-    gui.Parent = CoreGui
+    if mainGui then
+        mainGui:Destroy()
+    end
+
+    mainGui = Instance.new("ScreenGui")
+    mainGui.Name = "MainMenu"
+    mainGui.ResetOnSpawn = false
+    mainGui.Parent = CoreGui
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0.8, 0, 0.5, 0)
-    mainFrame.Position = UDim2.new(0.1, 0, 0.25, 0)
+    mainFrame.Size = UDim2.new(0.8, 0, 0.6, 0)
+    mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     mainFrame.Active = true
-    mainFrame.Draggable = false
+    mainFrame.BorderSizePixel = 2
+    mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0) -- Красная рамка для видимости
 
-    -- TITLE
+    -- ОБЛАСТЬ ДЛЯ ПЕРЕТАСКИВАНИЯ (ВЕСЬ ВЕРХ) --
+    local dragArea = Instance.new("Frame")
+    dragArea.Name = "DragArea"
+    dragArea.Size = UDim2.new(1, 0, 0.15, 0)
+    dragArea.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    dragArea.BorderSizePixel = 0
+    dragArea.Active = true
+    dragArea.ZIndex = 2
+
+    -- ЗАГОЛОВОК --
     local title = Instance.new("TextLabel")
-    title.Text = "KRNL EXECUTOR"
-    title.Size = UDim2.new(1, 0, 0.15, 0)
-    title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-    title.TextColor3 = Color3.new(1, 0, 0)
-    title.Font = Enum.Font.GothamBold
+    title.Text = "≡ DRAG HERE TO MOVE ≡"
+    title.Size = UDim2.new(1, 0, 1, 0)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = Color3.new(1, 1, 1)
     title.TextScaled = true
+    title.ZIndex = 3
+    title.Parent = dragArea
 
-    -- SCRIPT INPUT
+    -- ПОЛЕ ВВОДА --
     local textBox = Instance.new("TextBox")
-    textBox.PlaceholderText = "Enter Lua script here..."
+    textBox.PlaceholderText = "Enter script here..."
     textBox.Size = UDim2.new(0.9, 0, 0.5, 0)
-    textBox.Position = UDim2.new(0.05, 0, 0.2, 0)
+    textBox.Position = UDim2.new(0.05, 0, 0.3, 0)
     textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     textBox.TextColor3 = Color3.new(1, 1, 1)
-    textBox.TextXAlignment = Enum.TextXAlignment.Left
-    textBox.TextYAlignment = Enum.TextYAlignment.Top
     textBox.MultiLine = true
     textBox.TextWrapped = true
-    textBox.Font = Enum.Font.SourceSans
-    textBox.TextSize = 14
 
-    -- BUTTONS
+    -- КНОПКА ВЫПОЛНЕНИЯ --
     local executeBtn = Instance.new("TextButton")
-    executeBtn.Text = "▶ EXECUTE"
-    executeBtn.Size = UDim2.new(0.4, 0, 0.15, 0)
-    executeBtn.Position = UDim2.new(0.05, 0, 0.75, 0)
+    executeBtn.Text = "EXECUTE"
+    executeBtn.Size = UDim2.new(0.9, 0, 0.1, 0)
+    executeBtn.Position = UDim2.new(0.05, 0, 0.85, 0)
     executeBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
     executeBtn.TextColor3 = Color3.new(1, 1, 1)
-    executeBtn.Font = Enum.Font.GothamBold
-    executeBtn.TextScaled = true
 
-    local speedBtn = Instance.new("TextButton")
-    speedBtn.Text = "⚡ SPEEDHACK"
-    speedBtn.Size = UDim2.new(0.4, 0, 0.15, 0)
-    speedBtn.Position = UDim2.new(0.55, 0, 0.75, 0)
-    speedBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-    speedBtn.TextColor3 = Color3.new(1, 1, 1)
-    speedBtn.Font = Enum.Font.GothamBold
-    speedBtn.TextScaled = true
-
-    -- ASSEMBLY
-    title.Parent = mainFrame
+    -- СБОРКА --
+    dragArea.Parent = mainFrame
     textBox.Parent = mainFrame
     executeBtn.Parent = mainFrame
-    speedBtn.Parent = mainFrame
-    mainFrame.Parent = gui
+    mainFrame.Parent = mainGui
 
-    -- ENABLE DRAGGING FOR MAIN MENU
-    EnableMobileDrag(mainFrame)
+    -- ВКЛЮЧАЕМ ПЕРЕТАСКИВАНИЕ --
+    EnableDrag(mainFrame)
 
-    -- FUNCTIONALITY
+    -- ФУНКЦИОНАЛ --
     executeBtn.MouseButton1Click:Connect(function()
         local script = textBox.Text
         if script and script ~= "" then
-            local success, error = pcall(function()
+            local success, err = pcall(function()
                 loadstring(script)()
             end)
-            
             if success then
-                ShowNotification("✅ Script executed!", Color3.fromRGB(0, 170, 0))
+                ShowNotification("Script executed!")
             else
-                ShowNotification("❌ Error: " .. tostring(error), Color3.fromRGB(170, 0, 0))
+                ShowNotification("Error: " .. tostring(err))
             end
         else
-            ShowNotification("⚠️ Enter script first!", Color3.fromRGB(200, 200, 0))
+            ShowNotification("Enter script first!")
         end
     end)
 
-    speedBtn.MouseButton1Click:Connect(function()
-        if speedGui and speedGui.Parent then
-            speedGui.Enabled = not speedGui.Enabled
-            if speedGui.Enabled then
-                ShowNotification("⚡ Speedhack menu opened", Color3.fromRGB(0, 100, 200))
-            else
-                ShowNotification("⚡ Speedhack menu closed", Color3.fromRGB(100, 100, 100))
-            end
-        else
-            CreateSpeedMenu()
-        end
-    end)
-
-    return gui
+    ShowNotification("Menu loaded! Drag the TOP BAR to move")
+    return mainGui
 end
 
--- SPEEDHACK MENU --
-local function CreateSpeedMenu()
-    -- Remove old menu if exists
-    if speedGui then
-        speedGui:Destroy()
-    end
-
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "Speedhack_Menu"
-    gui.ResetOnSpawn = false
-    gui.Parent = CoreGui
-
-    local speedFrame = Instance.new("Frame")
-    speedFrame.Size = UDim2.new(0.6, 0, 0.2, 0)
-    speedFrame.Position = UDim2.new(0.2, 0, 0.4, 0)
-    speedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    speedFrame.Active = true
-    speedFrame.Draggable = false
-
-    local title = Instance.new("TextLabel")
-    title.Text = "⚡ SPEEDHACK"
-    title.Size = UDim2.new(1, 0, 0.3, 0)
-    title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
-    title.TextColor3 = Color3.new(1, 0.5, 0)
-    title.Font = Enum.Font.GothamBold
-    title.TextScaled = true
-
-    local slider = Instance.new("Frame")
-    slider.Size = UDim2.new(0.9, 0, 0.2, 0)
-    slider.Position = UDim2.new(0.05, 0, 0.5, 0)
-    slider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-    slider.BorderSizePixel = 0
-    slider.Active = true
-
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new(0.5, 0, 1, 0)
-    fill.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    fill.BorderSizePixel = 0
-    fill.Parent = slider
-
-    local valueText = Instance.new("TextLabel")
-    valueText.Text = "Speed: 1.0x"
-    valueText.Size = UDim2.new(1, 0, 0.3, 0)
-    valueText.Position = UDim2.new(0, 0, 0.7, 0)
-    valueText.BackgroundTransparency = 1
-    valueText.TextColor3 = Color3.new(1, 1, 1)
-    valueText.Font = Enum.Font.Gotham
-    valueText.TextScaled = true
-
-    -- ASSEMBLY
-    title.Parent = speedFrame
-    slider.Parent = speedFrame
-    valueText.Parent = speedFrame
-    speedFrame.Parent = gui
-
-    -- ENABLE DRAGGING FOR SPEEDHACK MENU
-    EnableMobileDrag(speedFrame)
-
-    -- SLIDER FUNCTIONALITY
-    local connection
-    slider.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.Touch then
-            local touchStartX = input.Position.X
-            local startFillSize = fill.Size
-            
-            connection = UIS.InputChanged:Connect(function(moveInput)
-                if moveInput.UserInputType == Enum.UserInputType.Touch then
-                    local deltaX = moveInput.Position.X - touchStartX
-                    local newWidth = math.clamp(startFillSize.X.Scale + (deltaX / slider.AbsoluteSize.X), 0, 1)
-                    fill.Size = UDim2.new(newWidth, 0, 1, 0)
-                    
-                    local speed = math.clamp(newWidth * 5, 0.1, 5)
-                    valueText.Text = string.format("Speed: %.1fx", speed)
-                    
-                    local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-                    if humanoid then
-                        humanoid.WalkSpeed = 16 * speed
-                    end
-                end
-            end)
-        end
-    end)
-
-    slider.InputEnded:Connect(function(input)
-        if connection then
-            connection:Disconnect()
-        end
-    end)
-
-    speedGui = gui
-    ShowNotification("⚡ Speedhack menu opened", Color3.fromRGB(0, 100, 200))
-    return gui
-end
-
--- AUTO START --
+-- АВТОЗАПУСК --
 task.spawn(function()
     task.wait(2)
-    mainGui = CreateMainMenu()
-    ShowNotification("📱 Menu loaded! Drag anywhere to move", Color3.fromRGB(0, 100, 200))
+    CreateMainMenu()
 end)
 
-print("Mobile menu activated!")
+-- КНОПКА ПЕРЕЗАГРУЗКИ ДЛЯ ТЕСТА --
+local reloadBtn = Instance.new("TextButton")
+reloadBtn.Text = "🔄 RELOAD"
+reloadBtn.Size = UDim2.new(0.15, 0, 0.05, 0)
+reloadBtn.Position = UDim2.new(0.02, 0, 0.02, 0)
+reloadBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 150)
+reloadBtn.TextColor3 = Color3.new(1, 1, 1)
+reloadBtn.Parent = CoreGui
+
+reloadBtn.MouseButton1Click:Connect(function()
+    CreateMainMenu()
+    ShowNotification("Menu reloaded!")
+end)
+
+print("✅ Drag menu activated! Drag the TOP BAR to move")
