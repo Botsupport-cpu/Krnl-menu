@@ -58,6 +58,7 @@ local function EnableMobileDrag(frame)
         if input.UserInputType == Enum.UserInputType.Touch then
             touchStartPos = input.Position
             frameStartPos = frame.Position
+            frame.Draggable = true
         end
     end)
     
@@ -164,10 +165,12 @@ local function CreateMainMenu()
     end)
 
     speedBtn.MouseButton1Click:Connect(function()
-        if speedGui then
+        if speedGui and speedGui.Parent then
             speedGui.Enabled = not speedGui.Enabled
             if speedGui.Enabled then
                 ShowNotification("⚡ Speedhack menu opened", Color3.fromRGB(0, 100, 200))
+            else
+                ShowNotification("⚡ Speedhack menu closed", Color3.fromRGB(100, 100, 100))
             end
         else
             CreateSpeedMenu()
@@ -179,6 +182,11 @@ end
 
 -- SPEEDHACK MENU --
 local function CreateSpeedMenu()
+    -- Remove old menu if exists
+    if speedGui then
+        speedGui:Destroy()
+    end
+
     local gui = Instance.new("ScreenGui")
     gui.Name = "Speedhack_Menu"
     gui.ResetOnSpawn = false
@@ -189,6 +197,7 @@ local function CreateSpeedMenu()
     speedFrame.Position = UDim2.new(0.2, 0, 0.4, 0)
     speedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     speedFrame.Active = true
+    speedFrame.Draggable = false
 
     local title = Instance.new("TextLabel")
     title.Text = "⚡ SPEEDHACK"
@@ -203,6 +212,7 @@ local function CreateSpeedMenu()
     slider.Position = UDim2.new(0.05, 0, 0.5, 0)
     slider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
     slider.BorderSizePixel = 0
+    slider.Active = true
 
     local fill = Instance.new("Frame")
     fill.Size = UDim2.new(0.5, 0, 1, 0)
@@ -229,14 +239,15 @@ local function CreateSpeedMenu()
     EnableMobileDrag(speedFrame)
 
     -- SLIDER FUNCTIONALITY
+    local connection
     slider.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             local touchStartX = input.Position.X
             local startFillSize = fill.Size
             
-            input.Changed:Connect(function()
-                if input.UserInputState == Enum.UserInputState.Change then
-                    local deltaX = input.Position.X - touchStartX
+            connection = UIS.InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.Touch then
+                    local deltaX = moveInput.Position.X - touchStartX
                     local newWidth = math.clamp(startFillSize.X.Scale + (deltaX / slider.AbsoluteSize.X), 0, 1)
                     fill.Size = UDim2.new(newWidth, 0, 1, 0)
                     
@@ -249,6 +260,12 @@ local function CreateSpeedMenu()
                     end
                 end
             end)
+        end
+    end)
+
+    slider.InputEnded:Connect(function(input)
+        if connection then
+            connection:Disconnect()
         end
     end)
 
