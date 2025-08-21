@@ -2,28 +2,15 @@ local UIS = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
-local HTTPService = game:GetService("HttpService")
 
--- ДЕБАГ РЕЖИМ --
-local DEBUG_MODE = true
-local function DebugLog(message)
-    if DEBUG_MODE then
-        warn("[DEBUG] " .. message)
-    end
-end
+-- VARIABLES --
+local mainGui, speedGui
 
--- ПЕРЕМЕННЫЕ --
-local mainGui, speedGui, backdoorGui
-local _G.ScriptCache = {}
-
--- ФУНКЦИЯ УВЕДОМЛЕНИЙ --
+-- NOTIFICATION FUNCTION --
 local function ShowNotification(message, color)
-    DebugLog("Создаю уведомление: " .. message)
-    
     local notify = Instance.new("ScreenGui")
     notify.Name = "Notification"
     notify.Parent = CoreGui
-    notify.ResetOnSpawn = false
 
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0.6, 0, 0.08, 0)
@@ -41,7 +28,7 @@ local function ShowNotification(message, color)
     label.Parent = frame
     frame.Parent = notify
 
-    -- АНИМАЦИЯ
+    -- ANIMATION
     frame.Position = UDim2.new(0.2, 0, -0.1, 0)
     local tweenIn = TweenService:Create(
         frame,
@@ -63,31 +50,15 @@ local function ShowNotification(message, color)
     end)
 end
 
--- ПРОВЕРКА ДОСТУПНОСТИ CORE GUI --
-local function EnsureCoreGui()
-    if not CoreGui then
-        DebugLog("CoreGui не найден, пробую получить доступ...")
-        CoreGui = game:GetService("CoreGui")
-    end
-    
-    if not CoreGui then
-        warn("❌ FATAL: CoreGui недоступен!")
-        return false
-    end
-    return true
-end
-
--- ПЕРЕТАСКИВАНИЕ --
+-- DRAGGABLE FUNCTION FOR MOBILE --
 local function EnableMobileDrag(frame)
-    DebugLog("Включаю перетаскивание для " .. frame.Name)
-    
     local touchStartPos, frameStartPos
     
     frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             touchStartPos = input.Position
             frameStartPos = frame.Position
-            DebugLog("Начало перетаскивания")
+            frame.Draggable = true
         end
     end)
     
@@ -109,112 +80,124 @@ local function EnableMobileDrag(frame)
     end)
 end
 
--- ГЛАВНОЕ МЕНЮ --
+-- MAIN MENU --
 local function CreateMainMenu()
-    DebugLog("Создаю главное меню...")
-    
-    if not EnsureCoreGui() then return end
-    
-    -- Удаляем старое меню если есть
-    if mainGui then
-        mainGui:Destroy()
-    end
-
     local gui = Instance.new("ScreenGui")
-    gui.Name = "Advanced_KRNL_Menu"
+    gui.Name = "Mobile_KRNL_Menu"
     gui.ResetOnSpawn = false
     gui.Parent = CoreGui
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0.8, 0, 0.6, 0)
-    mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
+    mainFrame.Size = UDim2.new(0.8, 0, 0.5, 0)
+    mainFrame.Position = UDim2.new(0.1, 0, 0.25, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     mainFrame.Active = true
-    mainFrame.Name = "MainFrame"
+    mainFrame.Draggable = false
 
-    -- ЗАГОЛОВОК
+    -- TITLE
     local title = Instance.new("TextLabel")
-    title.Text = "ADVANCED EXECUTOR"
-    title.Size = UDim2.new(1, 0, 0.1, 0)
+    title.Text = "KRNL EXECUTOR"
+    title.Size = UDim2.new(1, 0, 0.15, 0)
     title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
     title.TextColor3 = Color3.new(1, 0, 0)
     title.Font = Enum.Font.GothamBold
     title.TextScaled = true
 
-    -- ПОЛЕ ВВОДА
+    -- SCRIPT INPUT
     local textBox = Instance.new("TextBox")
     textBox.PlaceholderText = "Enter Lua script here..."
     textBox.Size = UDim2.new(0.9, 0, 0.5, 0)
-    textBox.Position = UDim2.new(0.05, 0, 0.15, 0)
+    textBox.Position = UDim2.new(0.05, 0, 0.2, 0)
     textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     textBox.TextColor3 = Color3.new(1, 1, 1)
     textBox.TextXAlignment = Enum.TextXAlignment.Left
     textBox.TextYAlignment = Enum.TextYAlignment.Top
     textBox.MultiLine = true
     textBox.TextWrapped = true
+    textBox.Font = Enum.Font.SourceSans
+    textBox.TextSize = 14
 
-    -- КНОПКИ
-    local buttons = {
-        {text = "▶ EXECUTE", pos = UDim2.new(0.05, 0, 0.7, 0), color = Color3.fromRGB(0, 170, 0)},
-        {text = "⚡ SPEEDHACK", pos = UDim2.new(0.55, 0, 0.7, 0), color = Color3.fromRGB(0, 100, 200)},
-        {text = "🔓 BACKDOOR", pos = UDim2.new(0.05, 0, 0.82, 0), color = Color3.fromRGB(120, 0, 200)},
-        {text = "🗑️ CLEAR CACHE", pos = UDim2.new(0.55, 0, 0.82, 0), color = Color3.fromRGB(200, 50, 50)}
-    }
+    -- BUTTONS
+    local executeBtn = Instance.new("TextButton")
+    executeBtn.Text = "▶ EXECUTE"
+    executeBtn.Size = UDim2.new(0.4, 0, 0.15, 0)
+    executeBtn.Position = UDim2.new(0.05, 0, 0.75, 0)
+    executeBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
+    executeBtn.TextColor3 = Color3.new(1, 1, 1)
+    executeBtn.Font = Enum.Font.GothamBold
+    executeBtn.TextScaled = true
 
-    for i, btnData in ipairs(buttons) do
-        local button = Instance.new("TextButton")
-        button.Text = btnData.text
-        button.Size = UDim2.new(0.4, 0, 0.1, 0)
-        button.Position = btnData.pos
-        button.BackgroundColor3 = btnData.color
-        button.TextColor3 = Color3.new(1, 1, 1)
-        button.TextScaled = true
-        button.Parent = mainFrame
-    end
+    local speedBtn = Instance.new("TextButton")
+    speedBtn.Text = "⚡ SPEEDHACK"
+    speedBtn.Size = UDim2.new(0.4, 0, 0.15, 0)
+    speedBtn.Position = UDim2.new(0.55, 0, 0.75, 0)
+    speedBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+    speedBtn.TextColor3 = Color3.new(1, 1, 1)
+    speedBtn.Font = Enum.Font.GothamBold
+    speedBtn.TextScaled = true
 
-    -- СБОРКА
+    -- ASSEMBLY
     title.Parent = mainFrame
     textBox.Parent = mainFrame
+    executeBtn.Parent = mainFrame
+    speedBtn.Parent = mainFrame
     mainFrame.Parent = gui
 
-    -- ВКЛЮЧАЕМ ПЕРЕТАСКИВАНИЕ
+    -- ENABLE DRAGGING FOR MAIN MENU
     EnableMobileDrag(mainFrame)
 
-    -- ПРОСТАЯ ФУНКЦИОНАЛЬНОСТЬ ДЛЯ ТЕСТА
-    local executeBtn = mainFrame:FindFirstChild("TextButton")
-    if executeBtn then
-        executeBtn.MouseButton1Click:Connect(function()
-            DebugLog("Кнопка нажата!")
-            ShowNotification("✅ Меню работает!", Color3.fromRGB(0, 200, 0))
-        end)
-    end
+    -- FUNCTIONALITY
+    executeBtn.MouseButton1Click:Connect(function()
+        local script = textBox.Text
+        if script and script ~= "" then
+            local success, error = pcall(function()
+                loadstring(script)()
+            end)
+            
+            if success then
+                ShowNotification("✅ Script executed!", Color3.fromRGB(0, 170, 0))
+            else
+                ShowNotification("❌ Error: " .. tostring(error), Color3.fromRGB(170, 0, 0))
+            end
+        else
+            ShowNotification("⚠️ Enter script first!", Color3.fromRGB(200, 200, 0))
+        end
+    end)
 
-    mainGui = gui
-    DebugLog("Главное меню создано успешно!")
+    speedBtn.MouseButton1Click:Connect(function()
+        if speedGui and speedGui.Parent then
+            speedGui.Enabled = not speedGui.Enabled
+            if speedGui.Enabled then
+                ShowNotification("⚡ Speedhack menu opened", Color3.fromRGB(0, 100, 200))
+            else
+                ShowNotification("⚡ Speedhack menu closed", Color3.fromRGB(100, 100, 100))
+            end
+        else
+            CreateSpeedMenu()
+        end
+    end)
+
     return gui
 end
 
--- ПРОСТОЙ SPEEDHACK МЕНЮ --
+-- SPEEDHACK MENU --
 local function CreateSpeedMenu()
-    DebugLog("Создаю меню скорости...")
-    
-    if not EnsureCoreGui() then return end
-    
+    -- Remove old menu if exists
     if speedGui then
         speedGui:Destroy()
     end
 
     local gui = Instance.new("ScreenGui")
-    gui.Name = "Speed_Menu"
+    gui.Name = "Speedhack_Menu"
     gui.ResetOnSpawn = false
     gui.Parent = CoreGui
 
-    local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0.6, 0, 0.2, 0)
-    frame.Position = UDim2.new(0.2, 0, 0.4, 0)
-    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
-    frame.Active = true
-    frame.Name = "SpeedFrame"
+    local speedFrame = Instance.new("Frame")
+    speedFrame.Size = UDim2.new(0.6, 0, 0.2, 0)
+    speedFrame.Position = UDim2.new(0.2, 0, 0.4, 0)
+    speedFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    speedFrame.Active = true
+    speedFrame.Draggable = false
 
     local title = Instance.new("TextLabel")
     title.Text = "⚡ SPEEDHACK"
@@ -224,67 +207,78 @@ local function CreateSpeedMenu()
     title.Font = Enum.Font.GothamBold
     title.TextScaled = true
 
-    title.Parent = frame
-    frame.Parent = gui
+    local slider = Instance.new("Frame")
+    slider.Size = UDim2.new(0.9, 0, 0.2, 0)
+    slider.Position = UDim2.new(0.05, 0, 0.5, 0)
+    slider.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+    slider.BorderSizePixel = 0
+    slider.Active = true
 
-    EnableMobileDrag(frame)
+    local fill = Instance.new("Frame")
+    fill.Size = UDim2.new(0.5, 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    fill.BorderSizePixel = 0
+    fill.Parent = slider
+
+    local valueText = Instance.new("TextLabel")
+    valueText.Text = "Speed: 1.0x"
+    valueText.Size = UDim2.new(1, 0, 0.3, 0)
+    valueText.Position = UDim2.new(0, 0, 0.7, 0)
+    valueText.BackgroundTransparency = 1
+    valueText.TextColor3 = Color3.new(1, 1, 1)
+    valueText.Font = Enum.Font.Gotham
+    valueText.TextScaled = true
+
+    -- ASSEMBLY
+    title.Parent = speedFrame
+    slider.Parent = speedFrame
+    valueText.Parent = speedFrame
+    speedFrame.Parent = gui
+
+    -- ENABLE DRAGGING FOR SPEEDHACK MENU
+    EnableMobileDrag(speedFrame)
+
+    -- SLIDER FUNCTIONALITY
+    local connection
+    slider.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Touch then
+            local touchStartX = input.Position.X
+            local startFillSize = fill.Size
+            
+            connection = UIS.InputChanged:Connect(function(moveInput)
+                if moveInput.UserInputType == Enum.UserInputType.Touch then
+                    local deltaX = moveInput.Position.X - touchStartX
+                    local newWidth = math.clamp(startFillSize.X.Scale + (deltaX / slider.AbsoluteSize.X), 0, 1)
+                    fill.Size = UDim2.new(newWidth, 0, 1, 0)
+                    
+                    local speed = math.clamp(newWidth * 5, 0.1, 5)
+                    valueText.Text = string.format("Speed: %.1fx", speed)
+                    
+                    local humanoid = Players.LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
+                    if humanoid then
+                        humanoid.WalkSpeed = 16 * speed
+                    end
+                end
+            end)
+        end
+    end)
+
+    slider.InputEnded:Connect(function(input)
+        if connection then
+            connection:Disconnect()
+        end
+    end)
+
     speedGui = gui
-    
-    DebugLog("Меню скорости создано!")
+    ShowNotification("⚡ Speedhack menu opened", Color3.fromRGB(0, 100, 200))
     return gui
 end
 
--- АВТОМАТИЧЕСКИЙ ЗАПУСК --
-DebugLog("Запуск скрипта...")
-DebugLog("CoreGui: " .. tostring(CoreGui))
-DebugLog("Players: " .. tostring(Players))
-
+-- AUTO START --
 task.spawn(function()
-    DebugLog("Ожидание 2 секунды...")
     task.wait(2)
-    
-    DebugLog("Попытка создания меню...")
-    local success, err = pcall(function()
-        mainGui = CreateMainMenu()
-        if mainGui then
-            ShowNotification("🚀 Меню загружено! Тащите для перемещения", Color3.fromRGB(0, 100, 200))
-            DebugLog("Меню успешно создано и показано")
-        else
-            warn("❌ Не удалось создать меню!")
-        end
-    end)
-    
-    if not success then
-        warn("❌ Ошибка при создании меню: " .. tostring(err))
-        
-        -- АВАРИЙНЫЙ РЕЖИМ
-        local emergencyGui = Instance.new("ScreenGui")
-        emergencyGui.Parent = CoreGui
-        
-        local emergencyText = Instance.new("TextLabel")
-        emergencyText.Text = "❌ MENU ERROR\nCheck console (F9)"
-        emergencyText.Size = UDim2.new(0.5, 0, 0.2, 0)
-        emergencyText.Position = UDim2.new(0.25, 0, 0.4, 0)
-        emergencyText.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        emergencyText.TextColor3 = Color3.new(1, 1, 1)
-        emergencyText.Parent = emergencyGui
-        
-        warn("Аварийное меню создано")
-    end
+    mainGui = CreateMainMenu()
+    ShowNotification("📱 Menu loaded! Drag anywhere to move", Color3.fromRGB(0, 100, 200))
 end)
 
--- ТЕСТОВАЯ КНОПКА ДЛЯ ПРОВЕРКИ --
-local testButton = Instance.new("TextButton")
-testButton.Text = "🔄 SHOW MENU"
-testButton.Size = UDim2.new(0.2, 0, 0.1, 0)
-testButton.Position = UDim2.new(0.4, 0, 0.8, 0)
-testButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-testButton.TextColor3 = Color3.new(1, 1, 1)
-testButton.Parent = CoreGui
-
-testButton.MouseButton1Click:Connect(function()
-    DebugLog("Ручной запуск меню...")
-    CreateMainMenu()
-end)
-
-print("✅ Скрипт активирован! Проверьте F9 для логов")
+print("Mobile menu activated!")
