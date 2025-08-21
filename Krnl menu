@@ -4,15 +4,26 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local HTTPService = game:GetService("HttpService")
 
--- VARIABLES --
+-- ДЕБАГ РЕЖИМ --
+local DEBUG_MODE = true
+local function DebugLog(message)
+    if DEBUG_MODE then
+        warn("[DEBUG] " .. message)
+    end
+end
+
+-- ПЕРЕМЕННЫЕ --
 local mainGui, speedGui, backdoorGui
 local _G.ScriptCache = {}
 
--- NOTIFICATION FUNCTION --
+-- ФУНКЦИЯ УВЕДОМЛЕНИЙ --
 local function ShowNotification(message, color)
+    DebugLog("Создаю уведомление: " .. message)
+    
     local notify = Instance.new("ScreenGui")
     notify.Name = "Notification"
     notify.Parent = CoreGui
+    notify.ResetOnSpawn = false
 
     local frame = Instance.new("Frame")
     frame.Size = UDim2.new(0.6, 0, 0.08, 0)
@@ -30,7 +41,7 @@ local function ShowNotification(message, color)
     label.Parent = frame
     frame.Parent = notify
 
-    -- ANIMATION
+    -- АНИМАЦИЯ
     frame.Position = UDim2.new(0.2, 0, -0.1, 0)
     local tweenIn = TweenService:Create(
         frame,
@@ -52,82 +63,31 @@ local function ShowNotification(message, color)
     end)
 end
 
--- ADVANCED LOADSTRING WITH REQUIRE SUPPORT --
-local function AdvancedLoadString(scriptCode)
-    -- Create custom environment with require support
-    local env = {
-        require = function(module)
-            if _G.ScriptCache[module] then
-                return _G.ScriptCache[module]
-            end
-            
-            -- Try to load from game
-            local success, result = pcall(function()
-                return game:GetService(module)
-            end)
-            
-            if success then return result end
-            
-            -- Try to load from ReplicatedStorage
-            success, result = pcall(function()
-                return game:GetService("ReplicatedStorage"):FindFirstChild(module)
-            end)
-            
-            if success and result then return result end
-            
-            -- Try to load from HTTP
-            success, result = pcall(function()
-                if module:find("^https?://") then
-                    return HTTPService:GetAsync(module)
-                end
-            end)
-            
-            if success and result then
-                _G.ScriptCache[module] = result
-                return result
-            end
-            
-            error("Cannot require: " .. tostring(module))
-        end,
-        
-        getfenv = getfenv or function() return env end,
-        setfenv = setfenv or function(f, e) return f end,
-        
-        -- Backdoor functions
-        Backdoor = {
-            Execute = function(code)
-                loadstring(code)()
-            end,
-            GetPlayers = function()
-                return Players:GetPlayers()
-            end,
-            GetCharacter = function(player)
-                return player.Character
-            end
-        }
-    }
-    
-    -- Set metatable to access global functions
-    setmetatable(env, {__index = getfenv()})
-    
-    -- Execute with custom environment
-    local fn, errorMsg = loadstring(scriptCode)
-    if fn then
-        setfenv(fn, env)
-        return pcall(fn)
-    else
-        return false, errorMsg
+-- ПРОВЕРКА ДОСТУПНОСТИ CORE GUI --
+local function EnsureCoreGui()
+    if not CoreGui then
+        DebugLog("CoreGui не найден, пробую получить доступ...")
+        CoreGui = game:GetService("CoreGui")
     end
+    
+    if not CoreGui then
+        warn("❌ FATAL: CoreGui недоступен!")
+        return false
+    end
+    return true
 end
 
--- DRAGGABLE FUNCTION --
+-- ПЕРЕТАСКИВАНИЕ --
 local function EnableMobileDrag(frame)
+    DebugLog("Включаю перетаскивание для " .. frame.Name)
+    
     local touchStartPos, frameStartPos
     
     frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Touch then
             touchStartPos = input.Position
             frameStartPos = frame.Position
+            DebugLog("Начало перетаскивания")
         end
     end)
     
@@ -149,103 +109,17 @@ local function EnableMobileDrag(frame)
     end)
 end
 
--- BACKDOOR MENU --
-local function CreateBackdoorMenu()
-    if backdoorGui and backdoorGui.Parent then
-        backdoorGui:Destroy()
+-- ГЛАВНОЕ МЕНЮ --
+local function CreateMainMenu()
+    DebugLog("Создаю главное меню...")
+    
+    if not EnsureCoreGui() then return end
+    
+    -- Удаляем старое меню если есть
+    if mainGui then
+        mainGui:Destroy()
     end
 
-    local gui = Instance.new("ScreenGui")
-    gui.Name = "Backdoor_Menu"
-    gui.ResetOnSpawn = false
-    gui.Parent = CoreGui
-
-    local backdoorFrame = Instance.new("Frame")
-    backdoorFrame.Size = UDim2.new(0.7, 0, 0.3, 0)
-    backdoorFrame.Position = UDim2.new(0.15, 0, 0.6, 0)
-    backdoorFrame.BackgroundColor3 = Color3.fromRGB(30, 25, 35)
-    backdoorFrame.Active = true
-
-    local title = Instance.new("TextLabel")
-    title.Text = "🔓 BACKDOOR ACCESS"
-    title.Size = UDim2.new(1, 0, 0.2, 0)
-    title.BackgroundColor3 = Color3.fromRGB(60, 0, 80)
-    title.TextColor3 = Color3.new(1, 0.5, 1)
-    title.Font = Enum.Font.GothamBold
-    title.TextScaled = true
-
-    local urlBox = Instance.new("TextBox")
-    urlBox.PlaceholderText = "Enter script URL or local path..."
-    urlBox.Size = UDim2.new(0.9, 0, 0.2, 0)
-    urlBox.Position = UDim2.new(0.05, 0, 0.25, 0)
-    urlBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
-    urlBox.TextColor3 = Color3.new(1, 1, 1)
-
-    local loadBtn = Instance.new("TextButton")
-    loadBtn.Text = "📥 LOAD EXTERNAL"
-    loadBtn.Size = UDim2.new(0.4, 0, 0.2, 0)
-    loadBtn.Position = UDim2.new(0.05, 0, 0.5, 0)
-    loadBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-    loadBtn.TextColor3 = Color3.new(1, 1, 1)
-
-    local requireBtn = Instance.new("TextButton")
-    requireBtn.Text = "🔄 REQUIRE MODULE"
-    requireBtn.Size = UDim2.new(0.4, 0, 0.2, 0)
-    requireBtn.Position = UDim2.new(0.55, 0, 0.5, 0)
-    requireBtn.BackgroundColor3 = Color3.fromRGB(200, 100, 0)
-    requireBtn.TextColor3 = Color3.new(1, 1, 1)
-
-    -- ASSEMBLY
-    title.Parent = backdoorFrame
-    urlBox.Parent = backdoorFrame
-    loadBtn.Parent = backdoorFrame
-    requireBtn.Parent = backdoorFrame
-    backdoorFrame.Parent = gui
-
-    EnableMobileDrag(backdoorFrame)
-
-    -- FUNCTIONALITY
-    loadBtn.MouseButton1Click:Connect(function()
-        local url = urlBox.Text
-        if url and url ~= "" then
-            local success, result = pcall(function()
-                return HTTPService:GetAsync(url)
-            end)
-            
-            if success then
-                local execSuccess, errorMsg = AdvancedLoadString(result)
-                if execSuccess then
-                    ShowNotification("✅ External script loaded!", Color3.fromRGB(0, 200, 0))
-                else
-                    ShowNotification("❌ Execution error: " .. tostring(errorMsg), Color3.fromRGB(200, 0, 0))
-                end
-            else
-                ShowNotification("❌ Failed to load: " .. tostring(result), Color3.fromRGB(200, 0, 0))
-            end
-        end
-    end)
-
-    requireBtn.MouseButton1Click:Connect(function()
-        local moduleName = urlBox.Text
-        if moduleName and moduleName ~= "" then
-            local success, result = pcall(function()
-                return require(moduleName)
-            end)
-            
-            if success then
-                ShowNotification("✅ Module required: " .. tostring(result), Color3.fromRGB(0, 200, 0))
-            else
-                ShowNotification("❌ Require failed: " .. tostring(result), Color3.fromRGB(200, 0, 0))
-            end
-        end
-    end)
-
-    backdoorGui = gui
-    return gui
-end
-
--- MAIN MENU --
-local function CreateMainMenu()
     local gui = Instance.new("ScreenGui")
     gui.Name = "Advanced_KRNL_Menu"
     gui.ResetOnSpawn = false
@@ -256,8 +130,9 @@ local function CreateMainMenu()
     mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     mainFrame.Active = true
+    mainFrame.Name = "MainFrame"
 
-    -- TITLE
+    -- ЗАГОЛОВОК
     local title = Instance.new("TextLabel")
     title.Text = "ADVANCED EXECUTOR"
     title.Size = UDim2.new(1, 0, 0.1, 0)
@@ -266,9 +141,9 @@ local function CreateMainMenu()
     title.Font = Enum.Font.GothamBold
     title.TextScaled = true
 
-    -- SCRIPT INPUT
+    -- ПОЛЕ ВВОДА
     local textBox = Instance.new("TextBox")
-    textBox.PlaceholderText = "Enter Lua script here (supports require())..."
+    textBox.PlaceholderText = "Enter Lua script here..."
     textBox.Size = UDim2.new(0.9, 0, 0.5, 0)
     textBox.Position = UDim2.new(0.05, 0, 0.15, 0)
     textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
@@ -278,82 +153,138 @@ local function CreateMainMenu()
     textBox.MultiLine = true
     textBox.TextWrapped = true
 
-    -- BUTTONS
-    local executeBtn = Instance.new("TextButton")
-    executeBtn.Text = "▶ EXECUTE"
-    executeBtn.Size = UDim2.new(0.4, 0, 0.1, 0)
-    executeBtn.Position = UDim2.new(0.05, 0, 0.7, 0)
-    executeBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 0)
-    executeBtn.TextColor3 = Color3.new(1, 1, 1)
+    -- КНОПКИ
+    local buttons = {
+        {text = "▶ EXECUTE", pos = UDim2.new(0.05, 0, 0.7, 0), color = Color3.fromRGB(0, 170, 0)},
+        {text = "⚡ SPEEDHACK", pos = UDim2.new(0.55, 0, 0.7, 0), color = Color3.fromRGB(0, 100, 200)},
+        {text = "🔓 BACKDOOR", pos = UDim2.new(0.05, 0, 0.82, 0), color = Color3.fromRGB(120, 0, 200)},
+        {text = "🗑️ CLEAR CACHE", pos = UDim2.new(0.55, 0, 0.82, 0), color = Color3.fromRGB(200, 50, 50)}
+    }
 
-    local speedBtn = Instance.new("TextButton")
-    speedBtn.Text = "⚡ SPEEDHACK"
-    speedBtn.Size = UDim2.new(0.4, 0, 0.1, 0)
-    speedBtn.Position = UDim2.new(0.55, 0, 0.7, 0)
-    speedBtn.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-    speedBtn.TextColor3 = Color3.new(1, 1, 1)
+    for i, btnData in ipairs(buttons) do
+        local button = Instance.new("TextButton")
+        button.Text = btnData.text
+        button.Size = UDim2.new(0.4, 0, 0.1, 0)
+        button.Position = btnData.pos
+        button.BackgroundColor3 = btnData.color
+        button.TextColor3 = Color3.new(1, 1, 1)
+        button.TextScaled = true
+        button.Parent = mainFrame
+    end
 
-    local backdoorBtn = Instance.new("TextButton")
-    backdoorBtn.Text = "🔓 BACKDOOR"
-    backdoorBtn.Size = UDim2.new(0.4, 0, 0.1, 0)
-    backdoorBtn.Position = UDim2.new(0.05, 0, 0.82, 0)
-    backdoorBtn.BackgroundColor3 = Color3.fromRGB(120, 0, 200)
-    backdoorBtn.TextColor3 = Color3.new(1, 1, 1)
-
-    local clearBtn = Instance.new("TextButton")
-    clearBtn.Text = "🗑️ CLEAR CACHE"
-    clearBtn.Size = UDim2.new(0.4, 0, 0.1, 0)
-    clearBtn.Position = UDim2.new(0.55, 0, 0.82, 0)
-    clearBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    clearBtn.TextColor3 = Color3.new(1, 1, 1)
-
-    -- ASSEMBLY
+    -- СБОРКА
     title.Parent = mainFrame
     textBox.Parent = mainFrame
-    executeBtn.Parent = mainFrame
-    speedBtn.Parent = mainFrame
-    backdoorBtn.Parent = mainFrame
-    clearBtn.Parent = mainFrame
     mainFrame.Parent = gui
 
+    -- ВКЛЮЧАЕМ ПЕРЕТАСКИВАНИЕ
     EnableMobileDrag(mainFrame)
 
-    -- FUNCTIONALITY
-    executeBtn.MouseButton1Click:Connect(function()
-        local script = textBox.Text
-        if script and script ~= "" then
-            local success, errorMsg = AdvancedLoadString(script)
-            if success then
-                ShowNotification("✅ Script executed with require support!", Color3.fromRGB(0, 200, 0))
-            else
-                ShowNotification("❌ Error: " .. tostring(errorMsg), Color3.fromRGB(200, 0, 0))
-            end
-        end
-    end)
+    -- ПРОСТАЯ ФУНКЦИОНАЛЬНОСТЬ ДЛЯ ТЕСТА
+    local executeBtn = mainFrame:FindFirstChild("TextButton")
+    if executeBtn then
+        executeBtn.MouseButton1Click:Connect(function()
+            DebugLog("Кнопка нажата!")
+            ShowNotification("✅ Меню работает!", Color3.fromRGB(0, 200, 0))
+        end)
+    end
 
-    speedBtn.MouseButton1Click:Connect(function()
-        -- Speedhack menu code here (from previous version)
-        ShowNotification("Speedhack menu coming soon...", Color3.fromRGB(200, 200, 0))
-    end)
-
-    backdoorBtn.MouseButton1Click:Connect(function()
-        CreateBackdoorMenu()
-        ShowNotification("Backdoor menu activated!", Color3.fromRGB(150, 0, 255))
-    end)
-
-    clearBtn.MouseButton1Click:Connect(function()
-        _G.ScriptCache = {}
-        ShowNotification("Cache cleared!", Color3.fromRGB(200, 200, 0))
-    end)
-
+    mainGui = gui
+    DebugLog("Главное меню создано успешно!")
     return gui
 end
 
--- AUTO START --
+-- ПРОСТОЙ SPEEDHACK МЕНЮ --
+local function CreateSpeedMenu()
+    DebugLog("Создаю меню скорости...")
+    
+    if not EnsureCoreGui() then return end
+    
+    if speedGui then
+        speedGui:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "Speed_Menu"
+    gui.ResetOnSpawn = false
+    gui.Parent = CoreGui
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0.6, 0, 0.2, 0)
+    frame.Position = UDim2.new(0.2, 0, 0.4, 0)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+    frame.Active = true
+    frame.Name = "SpeedFrame"
+
+    local title = Instance.new("TextLabel")
+    title.Text = "⚡ SPEEDHACK"
+    title.Size = UDim2.new(1, 0, 0.3, 0)
+    title.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+    title.TextColor3 = Color3.new(1, 0.5, 0)
+    title.Font = Enum.Font.GothamBold
+    title.TextScaled = true
+
+    title.Parent = frame
+    frame.Parent = gui
+
+    EnableMobileDrag(frame)
+    speedGui = gui
+    
+    DebugLog("Меню скорости создано!")
+    return gui
+end
+
+-- АВТОМАТИЧЕСКИЙ ЗАПУСК --
+DebugLog("Запуск скрипта...")
+DebugLog("CoreGui: " .. tostring(CoreGui))
+DebugLog("Players: " .. tostring(Players))
+
 task.spawn(function()
+    DebugLog("Ожидание 2 секунды...")
     task.wait(2)
-    mainGui = CreateMainMenu()
-    ShowNotification("🚀 Advanced Executor Loaded!\nSupports require() & backdoor", Color3.fromRGB(0, 100, 200))
+    
+    DebugLog("Попытка создания меню...")
+    local success, err = pcall(function()
+        mainGui = CreateMainMenu()
+        if mainGui then
+            ShowNotification("🚀 Меню загружено! Тащите для перемещения", Color3.fromRGB(0, 100, 200))
+            DebugLog("Меню успешно создано и показано")
+        else
+            warn("❌ Не удалось создать меню!")
+        end
+    end)
+    
+    if not success then
+        warn("❌ Ошибка при создании меню: " .. tostring(err))
+        
+        -- АВАРИЙНЫЙ РЕЖИМ
+        local emergencyGui = Instance.new("ScreenGui")
+        emergencyGui.Parent = CoreGui
+        
+        local emergencyText = Instance.new("TextLabel")
+        emergencyText.Text = "❌ MENU ERROR\nCheck console (F9)"
+        emergencyText.Size = UDim2.new(0.5, 0, 0.2, 0)
+        emergencyText.Position = UDim2.new(0.25, 0, 0.4, 0)
+        emergencyText.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+        emergencyText.TextColor3 = Color3.new(1, 1, 1)
+        emergencyText.Parent = emergencyGui
+        
+        warn("Аварийное меню создано")
+    end
 end)
 
-print("Advanced executor with backdoor support activated!")
+-- ТЕСТОВАЯ КНОПКА ДЛЯ ПРОВЕРКИ --
+local testButton = Instance.new("TextButton")
+testButton.Text = "🔄 SHOW MENU"
+testButton.Size = UDim2.new(0.2, 0, 0.1, 0)
+testButton.Position = UDim2.new(0.4, 0, 0.8, 0)
+testButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
+testButton.TextColor3 = Color3.new(1, 1, 1)
+testButton.Parent = CoreGui
+
+testButton.MouseButton1Click:Connect(function()
+    DebugLog("Ручной запуск меню...")
+    CreateMainMenu()
+end)
+
+print("✅ Скрипт активирован! Проверьте F9 для логов")
