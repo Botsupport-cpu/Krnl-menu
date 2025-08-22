@@ -5,8 +5,18 @@ local Players = game:GetService("Players")
 -- ПЕРЕМЕННЫЕ --
 local mainGui = nil
 local dragStart, startPos, dragging = nil, nil, false
+local LocalPlayer = Players.LocalPlayer
 
--- ФУНКЦИЯ ПЕРЕТАСКИВАНИЯ ВСЕГО МЕНЮ --
+-- ГЕНЕРАТОР ФЕЙКОВЫХ НИКОВ --
+local function GenerateFakeName()
+    local prefixes = {"Dark", "Shadow", "Ghost", "Stealth", "Phantom", "Ninja", "Cyber", "Neo"}
+    local suffixes = {"Hunter", "Killer", "Warrior", "Slayer", "Master", "Lord", "Pro", "God"}
+    local numbers = math.random(100, 999)
+    
+    return prefixes[math.random(1, #prefixes)] .. suffixes[math.random(1, #suffixes)] .. numbers
+end
+
+-- ФУНКЦИЯ ПЕРЕТАСКИВАНИЯ --
 local function EnableDrag(frame)
     local dragArea = frame:FindFirstChild("DragArea")
     if not dragArea then return end
@@ -78,37 +88,59 @@ local function CreateMainMenu()
     mainGui.Parent = CoreGui
 
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0.8, 0, 0.6, 0)
-    mainFrame.Position = UDim2.new(0.1, 0, 0.2, 0)
+    mainFrame.Size = UDim2.new(0.8, 0, 0.65, 0) -- Увеличили высоту для нового блока
+    mainFrame.Position = UDim2.new(0.1, 0, 0.15, 0)
     mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
     mainFrame.Active = true
     mainFrame.BorderSizePixel = 2
-    mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0) -- Красная рамка для видимости
+    mainFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
 
-    -- ОБЛАСТЬ ДЛЯ ПЕРЕТАСКИВАНИЯ (ВЕСЬ ВЕРХ) --
+    -- БЛОК С ИНФОРМАЦИЕЙ О ИГРОКЕ --
+    local playerInfoFrame = Instance.new("Frame")
+    playerInfoFrame.Size = UDim2.new(1, 0, 0.15, 0)
+    playerInfoFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+    playerInfoFrame.BorderSizePixel = 0
+
+    local realNameLabel = Instance.new("TextLabel")
+    realNameLabel.Text = "Real: " .. LocalPlayer.Name
+    realNameLabel.Size = UDim2.new(0.9, 0, 0.4, 0)
+    realNameLabel.Position = UDim2.new(0.05, 0, 0.1, 0)
+    realNameLabel.BackgroundTransparency = 1
+    realNameLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+    realNameLabel.TextScaled = true
+    realNameLabel.Font = Enum.Font.Code
+
+    local fakeNameLabel = Instance.new("TextLabel")
+    fakeNameLabel.Text = "Fake: " .. GenerateFakeName()
+    fakeNameLabel.Size = UDim2.new(0.9, 0, 0.4, 0)
+    fakeNameLabel.Position = UDim2.new(0.05, 0, 0.5, 0)
+    fakeNameLabel.BackgroundTransparency = 1
+    fakeNameLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
+    fakeNameLabel.TextScaled = true
+    fakeNameLabel.Font = Enum.Font.Code
+
+    -- ОБЛАСТЬ ДЛЯ ПЕРЕТАСКИВАНИЯ --
     local dragArea = Instance.new("Frame")
     dragArea.Name = "DragArea"
     dragArea.Size = UDim2.new(1, 0, 0.15, 0)
+    dragArea.Position = UDim2.new(0, 0, 0.15, 0)
     dragArea.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
     dragArea.BorderSizePixel = 0
     dragArea.Active = true
-    dragArea.ZIndex = 2
 
-    -- ЗАГОЛОВОК --
     local title = Instance.new("TextLabel")
     title.Text = "≡ DRAG HERE TO MOVE ≡"
     title.Size = UDim2.new(1, 0, 1, 0)
     title.BackgroundTransparency = 1
     title.TextColor3 = Color3.new(1, 1, 1)
     title.TextScaled = true
-    title.ZIndex = 3
     title.Parent = dragArea
 
     -- ПОЛЕ ВВОДА --
     local textBox = Instance.new("TextBox")
     textBox.PlaceholderText = "Enter script here..."
-    textBox.Size = UDim2.new(0.9, 0, 0.5, 0)
-    textBox.Position = UDim2.new(0.05, 0, 0.3, 0)
+    textBox.Size = UDim2.new(0.9, 0, 0.45, 0)
+    textBox.Position = UDim2.new(0.05, 0, 0.35, 0)
     textBox.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
     textBox.TextColor3 = Color3.new(1, 1, 1)
     textBox.MultiLine = true
@@ -123,6 +155,9 @@ local function CreateMainMenu()
     executeBtn.TextColor3 = Color3.new(1, 1, 1)
 
     -- СБОРКА --
+    realNameLabel.Parent = playerInfoFrame
+    fakeNameLabel.Parent = playerInfoFrame
+    playerInfoFrame.Parent = mainFrame
     dragArea.Parent = mainFrame
     textBox.Parent = mainFrame
     executeBtn.Parent = mainFrame
@@ -148,7 +183,7 @@ local function CreateMainMenu()
         end
     end)
 
-    ShowNotification("Menu loaded! Drag the TOP BAR to move")
+    ShowNotification("Executor loaded! Real: " .. LocalPlayer.Name)
     return mainGui
 end
 
@@ -158,7 +193,7 @@ task.spawn(function()
     CreateMainMenu()
 end)
 
--- КНОПКА ПЕРЕЗАГРУЗКИ ДЛЯ ТЕСТА --
+-- КНОПКА ПЕРЕЗАГРУЗКИ --
 local reloadBtn = Instance.new("TextButton")
 reloadBtn.Text = "🔄 RELOAD"
 reloadBtn.Size = UDim2.new(0.15, 0, 0.05, 0)
@@ -172,4 +207,4 @@ reloadBtn.MouseButton1Click:Connect(function()
     ShowNotification("Menu reloaded!")
 end)
 
-print("✅ Drag menu activated! Drag the TOP BAR to move")
+print("✅ Executor with player info activated!")
